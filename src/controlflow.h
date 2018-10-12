@@ -54,12 +54,13 @@ struct Function {
 	vector<string> argv;
 	vector<VarDictionary*> scope;
 	vector <Token*> tokens;
+	std::string return_value;
 };
 
 struct Function* initFunction(string given_ID, vector<string>*argv, vector<Token*>* tokens, int start, int end, vector<VarDictionary*>* inher_scope);
 
 void printFunction(struct Function* f);
 
-void setArgument(struct Function** f, int index, string value, string type);
+void setArgument(struct Function** f, int index, std::string value, std::string type);
 
 void destroyFunction(struct Function* f);
