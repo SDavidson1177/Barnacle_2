@@ -13,9 +13,11 @@ vector <Expr*> statements;
 // extern FunctionDictionary operation_functions;
 
 int main(int argc, char** argv) {
+	int tok_count = 0;
+	int &tk_ref = tok_count;
 	initInterpreter(); //initializes project (global variables)
 	initialize_operations();
-	readTokens(argv[1], &tokens);
+	readTokens(argv[1], &tokens, tk_ref);
 	cout << "--Lexer--\n";
 	int size = tokens.size();
 	for (int i = 0; i < size; i++) {

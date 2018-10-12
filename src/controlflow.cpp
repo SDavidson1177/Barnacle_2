@@ -170,7 +170,7 @@ struct Function* initFunction(string given_ID, vector<string>* argv, vector<Toke
 	return f;
 }
 
-void setArgument(struct Function** f, int index, string value, string type) {
+void setArgument(struct Function** f, int index, std::string value, std::string type) {
 	string var_id = (*f)->argv.at(index);
 	string* new_val = new string;
 	*new_val = value;

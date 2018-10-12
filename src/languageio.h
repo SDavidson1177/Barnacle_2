@@ -9,7 +9,7 @@ using namespace std;
 
 void initInterpreter();
 
-void readTokens(const char* file, vector <Token*>* a);
+void readTokens(const char* file, vector <Token*>* a, int &line);
 
 /*strToNum(str, dest) converts str to a number which is stored either as
 an integer or a float in dest. Returns f for float and i for int.

@@ -65,6 +65,7 @@ void initInterpreter() {
 	specialSymbols.insert("cout", "CONSOLE_OUT");
 	specialSymbols.insert("function", "FUNC_DEF");
 	specialSymbols.insert("call", "FUNC_CALL");
+	specialSymbols.insert("return", "RETURN");
 	specialSymbols.insert("*", "OPERATOR");
 	specialSymbols.insert("=", "ASSIGNMENT");
 	specialSymbols.insert("==", "EQUALITY");
@@ -97,7 +98,7 @@ void initInterpreter() {
 	logicDictionary.insert("&&", "AND");
 }
 
-static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* len, int* maxlen, char** stringChar=nullptr) {
+static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* len, int* maxlen, int &index, char** stringChar=nullptr) {
 	char c;
 
 	//Handle the case for special symbols
@@ -111,7 +112,8 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 				bonus[size + 1] = 0;
 				const char* special_bonus = specialSymbols.lookup(bonus);
 				if (special_bonus != nullptr) {
-					a->push_back(new Token(special_bonus, bonus));
+					a->push_back(new Token(special_bonus, bonus, index));
+					index++;
 					*token = (char*)realloc(*token, 2 * sizeof(char));
 					*len = 1;
 					*maxlen = 2;
@@ -119,7 +121,8 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 				}
 				else {
 					if (c == ' ' || c == '\n') {
-						a->push_back(new Token(special, *token));
+						a->push_back(new Token(special, *token, index));
+						index++;
 						*token = (char*)realloc(*token, 2 * sizeof(char));
 						*len = 1;
 						*maxlen = 2;
@@ -131,30 +134,33 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 						char* string_char = (char*)stringCharacters.lookup(val); // get the possible string character
 						bool is_string_char = (string_char != nullptr); // is it a string character boolean value
 						if (is_string_char && !strcmp(*stringChar, NO_STRING)) { // if it starts a string where a string has not yet been started
-							a->push_back(new Token(special, *token)); // push back the token we have
+							a->push_back(new Token(special, *token, index)); // push back the token we have
+							index++;
 							strcpy_s(*stringChar, (strlen(string_char) + 1) * sizeof(char), string_char); // change stringChar to new string character
 							*token = (char*)realloc(*token, 4 * sizeof(char));
 							*len = 2;
 							*maxlen = 4;
 							(*token)[0] = c;
 							(*token)[1] = 0;
-							getSpecialSymbols(f, a, token, len, maxlen, stringChar);
+							getSpecialSymbols(f, a, token, len, maxlen, index, stringChar);
 						}
 						else if (stopSymbols.lookup(*token) || compDictionary.lookup(*token)) {
-							a->push_back(new Token(special, *token)); // push back the token we have
+							a->push_back(new Token(special, *token, index)); // push back the token we have
+							index++;
 							*token = (char*)realloc(*token, 4 * sizeof(char));
 							*len = 2;
 							*maxlen = 4;
 							(*token)[0] = c;
 							(*token)[1] = 0;
-							getSpecialSymbols(f, a, token, len, maxlen, stringChar);
+							getSpecialSymbols(f, a, token, len, maxlen, index, stringChar);
 						}
 						// Do nothing if nothing else is satisfied. The special symbol may be a small part of another symbol
 					}
 				}
 		}
 		else {
-			a->push_back(new Token(special, *token));
+			a->push_back(new Token(special, *token, index));
+			index++;
 			*token = (char*)realloc(*token, 2 * sizeof(char));
 			*len = 1;
 			*maxlen = 2;
@@ -164,7 +170,7 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 	//------------------------------------------
 }
 
-void readTokens(const char* file, vector <Token*>* a) {
+void readTokens(const char* file, vector <Token*>* a, int &index) {
 	FILE* f;
 	fopen_s(&f, file,  "r");
 	char c;
@@ -193,14 +199,17 @@ void readTokens(const char* file, vector <Token*>* a) {
 				if (len > 1) {
 					// ERROR NOT HERE
 					if (!isNaN(token)) {
-						a->push_back(new Token("NUMBER", token));
+						a->push_back(new Token("NUMBER", token, index));
+						index++;
 					}
 					else if (!strcmp("true", token) || !strcmp("false", token)) {
-						a->push_back(new Token("BOOLEAN", token));
+						a->push_back(new Token("BOOLEAN", token, index));
+						index++;
 					}
 					else {
 						const char* key = stopSymbols.lookup(token);
-						a->push_back(new Token(!key ? "SYMBOL" : key, token));
+						a->push_back(new Token(!key ? "SYMBOL" : key, token, index));
+						index++;
 					}
 				}
 
@@ -218,7 +227,7 @@ void readTokens(const char* file, vector <Token*>* a) {
 					token[1] = 0;
 					len = 2;
 					maxlen = 4;
-					getSpecialSymbols(&f, a, &token, &len, &maxlen, &stringChar);
+					getSpecialSymbols(&f, a, &token, &len, &maxlen, index, &stringChar);
 
 				}
 				else {
@@ -238,7 +247,8 @@ void readTokens(const char* file, vector <Token*>* a) {
 				len++;
 				if (is_string_char && !strcmp(stringChar, string_char)) {
 					removeQuotes(&token);
-					a->push_back(new Token(string_char, token));
+					a->push_back(new Token(string_char, token, index));
+					index++;
 					stringChar = (char*)realloc(stringChar, (NO_STRING_LEN + 1) * sizeof(char));
 					strcpy_s(stringChar, (NO_STRING_LEN + 1) * sizeof(char), NO_STRING);
 					token = (char*)realloc(token, 2*sizeof(char));
@@ -247,20 +257,23 @@ void readTokens(const char* file, vector <Token*>* a) {
 					token[0] = 0;
 				}
 				else {
-					getSpecialSymbols(&f, a, &token, &len, &maxlen, &stringChar);
+					getSpecialSymbols(&f, a, &token, &len, &maxlen, index, &stringChar);
 				}
 			}
 		} while (fscanf_s(f, "%c", &c) == 1);
 		if (len > 1) {
 			if (!isNaN(token)) {
-				a->push_back(new Token("NUMBER", token));
+				a->push_back(new Token("NUMBER", token, index));
+				index++;
 			}
 			else if (!strcmp("true", token) || !strcmp("false", token)) {
-				a->push_back(new Token("BOOLEAN", token));
+				a->push_back(new Token("BOOLEAN", token, index));
+				index++;
 			}
 			else {
 				const char* key = stopSymbols.lookup(token);
-				a->push_back(new Token(!key ? "SYMBOL" : key, token));
+				a->push_back(new Token(!key ? "SYMBOL" : key, token, index));
+				index++;
 			}
 		}
 		free(token);
@@ -324,7 +337,7 @@ bool isNaN(const char* str) {
 
 	int i = 0;
 
-	while (str[i] == ' ' || str[i] == '	' || str[i] == '\n' || str[i] == '\n') {
+	while (str[i] == ' ' || str[i] == '	' || str[i] == '\n') {
 		i++;
 	}
 

@@ -12,6 +12,7 @@ LangFuncDictionary* functions = new LangFuncDictionary();
 
 // Detection of in in function or in class
 bool IN_FUNCTION = false;
+string RETURN = "";
 
 string getType(Token** lookup, vector <VarDictionary*>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
@@ -280,7 +281,11 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "SYMBOL") && given_function != nullptr) {
 						// Get all arguments and pass it to the function for evaluation.
 						getArguments(&given_function, tokens, scope, &i);
+						IN_FUNCTION = true;
 						parse(&(given_function->tokens), &(given_function->scope));
+						IN_FUNCTION = false;
+						given_function->return_value = RETURN; // if no return value is given, the default is the empty string
+						RETURN = "";
 					}
 					else {
 						cout << "Expected a function name given for call.";
@@ -320,6 +325,10 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					const int start = i;
 					int end = start;
 					while (end < tokensSize && strcmp(tokens->at(end)->getTokenValue().c_str(), "endfunc")) {
+						if (!strcmp(tokens->at(end)->getTokenValue().c_str(), "function")) { // There is another function definition inside the function
+							cerr << "Cannot define a function from within a function.";
+							throw "\n";
+						}
 						end++;
 					}
 
@@ -350,6 +359,29 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
 					exp->evaluate();
 					cout << exp->value << endl;
+				}
+			}
+			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "RETURN")) {
+				i++;
+				if (IN_FUNCTION) {
+					if (i >= tokensSize) {
+						cerr << "No semi-colon after return";
+						throw "\n";
+					}
+					else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "SEMI-COLON")) { // No return value so just end the function
+						break; // Stop looping through all the tokens
+					}
+					else {
+						i++;
+						Expr* exp = prepEquation(tokens, &tokensSize, scope, &i); // get the return value as an expression
+						exp->evaluate();
+						RETURN = exp->value; // set the return value and stop parsing the remaining tokens
+						break;
+					}
+				}
+				else {
+					cerr << "Cannot use \"return\" when not within a function.";
+					throw "\n";
 				}
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "CONSOLE_IN")) {
