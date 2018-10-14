@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <string.h>
 #include <cstdlib>
 #include <cstdio>
 #include <assert.h>
@@ -104,10 +105,10 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 	//Handle the case for special symbols
 	const char* special = specialSymbols.lookup(*token);
 	if (special != nullptr) {
-			if (fscanf_s(*f, "%c", &c) == 1 && c != ' ' && c != '\n' && c != '\t') {
+			if (fscanf(*f, "%c", &c) == 1 && c != ' ' && c != '\n' && c != '\t') {
 				int size = strlen(*token);
 				char* bonus = (char*)malloc((2 + size)*sizeof(char));
-				strcpy_s(bonus, (size + 1)*sizeof(char), *token);
+				strcpy(bonus, *token);
 				bonus[size] = c;
 				bonus[size + 1] = 0;
 				const char* special_bonus = specialSymbols.lookup(bonus);
@@ -136,7 +137,7 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 						if (is_string_char && !strcmp(*stringChar, NO_STRING)) { // if it starts a string where a string has not yet been started
 							a->push_back(new Token(special, *token, index)); // push back the token we have
 							index++;
-							strcpy_s(*stringChar, (strlen(string_char) + 1) * sizeof(char), string_char); // change stringChar to new string character
+							strcpy(*stringChar, string_char); // change stringChar to new string character
 							*token = (char*)realloc(*token, 4 * sizeof(char));
 							*len = 2;
 							*maxlen = 4;
@@ -172,16 +173,15 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 
 void readTokens(const char* file, vector <Token*>* a, int &index) {
 	FILE* f;
-	fopen_s(&f, file,  "r");
+	f = fopen(file,  "r");
 	char c;
 	char* token = (char*)malloc(2*sizeof(char));
 	char* stringChar = (char*)malloc(NO_STRING_LEN*sizeof(char));
-	strcpy_s(stringChar, (NO_STRING_LEN + 1) * sizeof(char), NO_STRING);
+	strcpy(stringChar, NO_STRING);
 	int len = 1;
 	int maxlen = 2;
-
 	//Inital additions to the token.
-	if (fscanf_s(f, " %c", &c) != 1) {
+	if (fscanf(f, " %c", &c) != 1) {
 		free(token);
 		return;
 	}
@@ -214,7 +214,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 				}
 
 				if (is_string_char) {
-					strcpy_s(stringChar, (strlen(string_char) + 1)*sizeof(char), string_char);
+					strcpy(stringChar, string_char);
 					token = (char*)realloc(token, 4 * sizeof(char));
 					// CHANGE later to not add string character at the beginning of the token
 					token[0] = c;
@@ -250,7 +250,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					a->push_back(new Token(string_char, token, index));
 					index++;
 					stringChar = (char*)realloc(stringChar, (NO_STRING_LEN + 1) * sizeof(char));
-					strcpy_s(stringChar, (NO_STRING_LEN + 1) * sizeof(char), NO_STRING);
+					strcpy(stringChar, NO_STRING);
 					token = (char*)realloc(token, 2*sizeof(char));
 					len = 1;
 					maxlen = 2;
@@ -260,7 +260,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					getSpecialSymbols(&f, a, &token, &len, &maxlen, index, &stringChar);
 				}
 			}
-		} while (fscanf_s(f, "%c", &c) == 1);
+		} while (fscanf(f, "%c", &c) == 1);
 		if (len > 1) {
 			if (!isNaN(token)) {
 				a->push_back(new Token("NUMBER", token, index));

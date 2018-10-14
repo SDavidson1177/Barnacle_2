@@ -26,10 +26,4 @@ int main(int argc, char** argv) {
 
 	cout << "\n--Parser--\n";
 	parse(&tokens);
-	int stSize = statements.size();
-	/*for (int i = 0; i < stSize; i++) {
-		//statements.at(i)->print();
-		//statements.at(i)->evaluate();
-		//cout << " => " << statements.at(i)->value << endl;
-	}*/
 }
