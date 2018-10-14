@@ -440,8 +440,8 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					exp->evaluate();
 					char* value = (char*)malloc((strlen(exp->value.c_str()) + 1) * sizeof(char));
 					char* new_type = (char*)malloc((strlen(given_type.c_str()) + 1) * sizeof(char));
-					strcpy_s(value, (strlen(exp->value.c_str()) + 1)*sizeof(char), exp->value.c_str());
-					strcpy_s(new_type, (strlen(given_type.c_str()) + 1) * sizeof(char), given_type.c_str());
+					strcpy(value, exp->value.c_str());
+					strcpy(new_type, given_type.c_str());
 					// cout << "Value of " << value << " : " << new_type << endl;
 					if (scope && scope->at(0)) { // We can add to the scope
 						scope->at(scope->size() - 1)->insert(new Variable((const char*)v_name, new_type), value);
@@ -461,7 +461,7 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					}
 					exp->evaluate();
 					char* value = (char*)malloc((strlen(exp->value.c_str()) + 1) * sizeof(char));
-					strcpy_s(value, (strlen(exp->value.c_str()) + 1) * sizeof(char), exp->value.c_str());
+					strcpy(value, exp->value.c_str());
 					// cout << "Value of " << v_name;
 					if (scope && scope->at(0)) { // We can add to the scope
 						scope->at(scope->size() - 1)->insert(new Variable((const char*)v_name, "NUMBER"), value);

@@ -52,8 +52,8 @@ static string add(Expr* leftSide, Expr* rightSide, Expr* parent) {
 			parent->setType("STRING");
 			int length = strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1;
 			char* new_value = (char*)malloc(sizeof(char)*length);
-			strcpy_s(new_value, (strlen(leftSide->value.c_str()) + 1)*sizeof(char), leftSide->value.c_str());
-			strcat_s(new_value, (strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1)*sizeof(char), rightSide->value.c_str());
+			strcpy(new_value, leftSide->value.c_str());
+			strcat(new_value, rightSide->value.c_str());
 			return new_value;
 		}
 	}
@@ -61,16 +61,16 @@ static string add(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		parent->setType("STRING");
 		int length = strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1;
 		char* new_value = (char*)malloc(sizeof(char)*length);
-		strcpy_s(new_value, (strlen(leftSide->value.c_str()) + 1) * sizeof(char), leftSide->value.c_str());
-		strcat_s(new_value, (strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1) * sizeof(char), rightSide->value.c_str());
+		strcpy(new_value, leftSide->value.c_str());
+		strcat(new_value, rightSide->value.c_str());
 		return new_value;
 	}
 	else if ((!strcmp(leftSide->getType().c_str(), "NUMBER") && !strcmp(rightSide->getType().c_str(), "STRING"))) {
 		parent->setType("STRING");
 		int length = strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1;
 		char* new_value = (char*)malloc(sizeof(char)*length);
-		strcpy_s(new_value, (strlen(leftSide->value.c_str()) + 1) * sizeof(char), leftSide->value.c_str());
-		strcat_s(new_value, (strlen(leftSide->value.c_str()) + strlen(rightSide->value.c_str()) + 1) * sizeof(char), rightSide->value.c_str());
+		strcpy(new_value, leftSide->value.c_str());
+		strcat(new_value, rightSide->value.c_str());
 		return new_value;
 	}
 	else {
@@ -493,7 +493,7 @@ static string gte(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	return nullptr;
 }
 
-static string or(Expr* leftSide, Expr* rightSide, Expr* parent) {
+static string or_f(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	if (strcmp("0", leftSide->value.c_str())) {
@@ -506,7 +506,7 @@ static string or(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	return "0";
 }
 
-static string and(Expr* leftSide, Expr* rightSide, Expr* parent) {
+static string and_f(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	if (!strcmp("0", leftSide->value.c_str())) {
@@ -533,19 +533,19 @@ static string compare(Expr* leftSide, Expr* rightSide, Expr* parent) {
 }
 // Initialize the operation functions
 void initialize_operations() {
-	operation_functions.insert("+", &add);
-	operation_functions.insert("-", &subtract);
-	operation_functions.insert("*", &multiply);
-	operation_functions.insert("/", &divide);
-	operation_functions.insert("==", &equality);
-	operation_functions.insert("!=", &inequality);
-	operation_functions.insert("|", &compare);
-	operation_functions.insert("<", &lt);
-	operation_functions.insert(">", &gt);
-	operation_functions.insert("<=", &lte);
-	operation_functions.insert(">=", &gte);
-	operation_functions.insert("||", &or);
-	operation_functions.insert("&&", &and);
+	operation_functions.insert("+", (void *)&add);
+	operation_functions.insert("-", (void *)&subtract);
+	operation_functions.insert("*", (void *)&multiply);
+	operation_functions.insert("/", (void *)&divide);
+	operation_functions.insert("==", (void *)&equality);
+	operation_functions.insert("!=", (void *)&inequality);
+	operation_functions.insert("|", (void *)&compare);
+	operation_functions.insert("<", (void *)&lt);
+	operation_functions.insert(">", (void *)&gt);
+	operation_functions.insert("<=", (void *)&lte);
+	operation_functions.insert(">=", (void *)&gte);
+	operation_functions.insert("||", (void *)&or_f);
+	operation_functions.insert("&&", (void *)&and_f);
 }
 // Expr
 
