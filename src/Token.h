@@ -17,6 +17,8 @@ public:
 
 	std::string getTokenValue();
 
+	int getIndex();
+
 	void coutToken();
 
 	bool isNull();

@@ -62,11 +62,11 @@ void initInterpreter() {
 	specialSymbols.insert("/", "OPERATOR");
 	specialSymbols.insert("var", "VAR_DEC");
 	specialSymbols.insert("global", "VAR_DEC");
+	specialSymbols.insert("return", "RETURN");
 	specialSymbols.insert("cin", "CONSOLE_IN");
 	specialSymbols.insert("cout", "CONSOLE_OUT");
 	specialSymbols.insert("function", "FUNC_DEF");
 	specialSymbols.insert("call", "FUNC_CALL");
-	specialSymbols.insert("return", "RETURN");
 	specialSymbols.insert("*", "OPERATOR");
 	specialSymbols.insert("=", "ASSIGNMENT");
 	specialSymbols.insert("==", "EQUALITY");
@@ -188,7 +188,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 	else {
 		token[0] = 0;
 	}
-	
+
 	if (f) {
 		do {
 			char val[] = { c , '\0' };

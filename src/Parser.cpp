@@ -3,24 +3,31 @@
 #include <iostream>
 #include <regex>
 
-static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, int* index, int end, bool get_comp=true);
-static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector<VarDictionary*>* scope, int* i, string ender="SEMI_COLON");
+static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int* index, int end, bool get_comp=true);
+static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector <map<string, pair<Variable*, const char*>>>* scope, int* i, string ender="SEMI_COLON");
 VarDictionary* globalVariables = new VarDictionary();
+
+Function* callFunction(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index, const int tokensSize);
 
 // Important global variables
 LangFuncDictionary* functions = new LangFuncDictionary();
+Function* (*Literal::function_parser)(vector<Token*>*, vector <map<string, pair<Variable*, const char*>>>*, int*, const int) = callFunction;
 
 // Detection of in in function or in class
 bool IN_FUNCTION = false;
+bool STACK_UNWIND = false;
 string RETURN = "";
 
-string getType(Token** lookup, vector <VarDictionary*>* scope) {
+string getType(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		Variable* var = nullptr;
 		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
 			int depth = scope->size() - 1;
 			while (depth > -1 && !var) {
-				var = scope->at(depth)->get((*lookup)->getTokenValue().c_str());
+				auto map_to_var = (scope->at(depth).find((*lookup)->getTokenValue()));
+				if (map_to_var != scope->at(depth).end()) {
+					var = (*map_to_var).second.first;
+				}
 				depth--;
 			}
 		}
@@ -32,16 +39,22 @@ string getType(Token** lookup, vector <VarDictionary*>* scope) {
 		}
 		return (string)var->getType();
 	}
+	if (!strcmp((*lookup)->getTokenKey().c_str(), "SEMI_COLON")) { // if we're dealing with a function's type
+		return "NUMBER";
+	}
 	return (*lookup)->getTokenKey();
 }
 
-string getValue(Token** lookup, vector <VarDictionary*>* scope) {
+string getValue(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		const char* var = nullptr;
 		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
 			int depth = scope->size() - 1;
 			while (depth > -1 && !var){
-				var = scope->at(depth)->lookup((*lookup)->getTokenValue().c_str());
+				auto map_to_var = scope->at(depth).find((*lookup)->getTokenValue());
+				if (map_to_var != scope->at(depth).end()) {
+					var = (*map_to_var).second.second;
+				}
 				depth--;
 			}
 		}
@@ -56,14 +69,17 @@ string getValue(Token** lookup, vector <VarDictionary*>* scope) {
 	return (*lookup)->getTokenValue();
 }
 
-Variable* getKey(Token** lookup, vector <VarDictionary*>* scope) {
+Variable* getKey(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		Variable** var = nullptr;
 		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
 			int depth = 0;
 			int max_depth = scope->size();
 			while (depth < max_depth && !var) {
-				*var = scope->at(depth)->get((*lookup)->getTokenValue().c_str());
+				auto map_to_var = (scope->at(depth).find((*lookup)->getTokenValue()));
+				if (map_to_var != scope->at(depth).end()) {
+					*var = (*map_to_var).second.first;
+				}
 				depth++;
 			}
 		}
@@ -75,14 +91,17 @@ Variable* getKey(Token** lookup, vector <VarDictionary*>* scope) {
 	return nullptr;
 }
 
-const char** p_getValue(Token** lookup, vector <VarDictionary*>* scope) {
+const char** p_getValue(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		const char** var = nullptr;
 		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
 			int depth = 0;
 			int max_depth = scope->size();
 			while (depth < max_depth && !var) {
-				var = scope->at(depth)->p_lookup((*lookup)->getTokenValue().c_str());
+				auto map_to_var = (scope->at(depth).find((*lookup)->getTokenValue()));
+				if (map_to_var != scope->at(depth).end()) {
+					var = &((*map_to_var).second.second);
+				}
 				depth++;
 			}
 		}
@@ -94,14 +113,17 @@ const char** p_getValue(Token** lookup, vector <VarDictionary*>* scope) {
 	return nullptr;
 }
 
-Variable** p_getKey(Token** lookup, vector <VarDictionary*>* scope) {
+Variable** p_getKey(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		Variable** var = nullptr;
 		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
 			int depth = 0;
 			int max_depth = scope->size();
 			while (depth < max_depth && !var) {
-				var = scope->at(depth)->p_get((*lookup)->getTokenValue().c_str());
+				auto map_to_var = (scope->at(depth).find((*lookup)->getTokenValue()));
+				if (map_to_var != scope->at(depth).end()) {
+					var = &((*map_to_var).second.first);
+				}
 				depth++;
 			}
 		}
@@ -121,7 +143,7 @@ int getPossiblyTypedTokenIndex(vector<Token*>* tokens, int index) {
 	return check;
 }
 
-void getArguments(Function **func, vector<Token*>* tokens, vector <VarDictionary*>* scope, int *index) {
+void getArguments(Function **func, vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index) {
 	int tokensSize = tokens->size();
 	*index += 1;
 	int argument_index = 0;
@@ -142,8 +164,40 @@ void getArguments(Function **func, vector<Token*>* tokens, vector <VarDictionary
 	}
 }
 
+Function* callFunction(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index, const int tokensSize) {
+	(*index)++;
+	if (true) {
+		Function* given_function = new Function;
+		given_function = functions->get(getValue(&tokens->at((*index)), scope).c_str());
+		Function &func_ref = *given_function;
+		// If we have a valid function name given
+		if (!strcmp(tokens->at((*index))->getTokenKey().c_str(), "SYMBOL") && given_function != nullptr) {
+			// Get all arguments and pass it to the function for evaluation.
+			getArguments(&given_function, tokens, scope, index);
+			IN_FUNCTION = true;
+			// vector <VarDictionary*>* s = new vector <VarDictionary*>;
+			//*s = given_function->scope;
+			parse(&(given_function->tokens), &(given_function->scope));
+			STACK_UNWIND = false;
+			IN_FUNCTION = false;
+			given_function->return_value = RETURN; // if no return value is given, the default is the empty string
+			RETURN = "";
+			return given_function;
+		}
+		else {
+			cout << "Expected a function name given for call.";
+		}
+		delete given_function;
+	}
+	/*else {
+		cout << "Too few tokens for function call";
+		throw "\n";
+	}*/
+	return nullptr;
+}
+
 /*Seems as though we can ignore the index variable*/
-void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
+void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	assert(tokens);
 	try {
 		int tokensSize = tokens->size();
@@ -201,6 +255,9 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					struct IfNode* true_node = evaluateIfStatement(if_eval);
 					if (true_node) { // we can parse the tokens as long as there is a true node
 						parse(&(true_node->tokens), &(true_node->scope));
+						if (STACK_UNWIND) {
+							return;
+						}
 					}
 					i = end; // skip past the end if and continue parsing from there
 					destroyIfStatement(if_eval);
@@ -232,6 +289,9 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 
 					while (!strcmp("1", while_eval->condition->value.c_str())) {
 						parse(&(while_eval->tokens), &(while_eval->scope));
+						if (STACK_UNWIND) {
+							return;
+						}
 						i = reset;
 						while_eval->condition = prepEquation(tokens, &tokensSize, scope, &i, "COLON"); // get the condition;
 						while_eval->condition->evaluate();
@@ -272,29 +332,7 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 				prepEquation(tokens, &tokensSize, scope, &i);
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "FUNC_CALL")) {
-				i++;
-				if (i < tokensSize) {
-					Function* given_function = nullptr;
-					given_function = functions->get(getValue(&tokens->at(i), scope).c_str());
-					Function &func_ref = *given_function;
-					// If we have a valid function name given
-					if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "SYMBOL") && given_function != nullptr) {
-						// Get all arguments and pass it to the function for evaluation.
-						getArguments(&given_function, tokens, scope, &i);
-						IN_FUNCTION = true;
-						parse(&(given_function->tokens), &(given_function->scope));
-						IN_FUNCTION = false;
-						given_function->return_value = RETURN; // if no return value is given, the default is the empty string
-						RETURN = "";
-					}
-					else {
-						cout << "Expected a function name given for call.";
-					}
-				}
-				else {
-					cout << "Too few tokens for function call";
-					throw "\n";
-				}
+				callFunction(tokens, scope, &i, tokensSize);
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "SEMI_COLON")) {
 
@@ -368,15 +406,12 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 						cerr << "No semi-colon after return";
 						throw "\n";
 					}
-					else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "SEMI-COLON")) { // No return value so just end the function
-						break; // Stop looping through all the tokens
-					}
 					else {
-						i++;
 						Expr* exp = prepEquation(tokens, &tokensSize, scope, &i); // get the return value as an expression
 						exp->evaluate();
 						RETURN = exp->value; // set the return value and stop parsing the remaining tokens
-						break;
+						STACK_UNWIND = true; // stop parsing until we exit the function
+						return; // the code returns, so do we
 					}
 				}
 				else {
@@ -443,10 +478,12 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					strcpy(value, exp->value.c_str());
 					strcpy(new_type, given_type.c_str());
 					// cout << "Value of " << value << " : " << new_type << endl;
-					if (scope && scope->at(0)) { // We can add to the scope
-						scope->at(scope->size() - 1)->insert(new Variable((const char*)v_name, new_type), value);
+					if (scope && scope->size() > 0) { // We can add to the scope
+						cout << "Giving local value " << value << " to " << v_name << "\n";
+						scope->at(scope->size() - 1).emplace((const char*)v_name, std::make_pair(new Variable((const char*)v_name, new_type), value));
 					}
 					if (!strcmp("global", tokens->at(temp - 1)->getTokenValue().c_str()) || !scope) {
+						cout << "Giving global value " << value << " to " << v_name << "\n";
 						globalVariables->insert(new Variable((const char*)v_name, new_type), value);
 					}
 					// Next, if there is a variable declaration without an initial value
@@ -463,8 +500,8 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 					char* value = (char*)malloc((strlen(exp->value.c_str()) + 1) * sizeof(char));
 					strcpy(value, exp->value.c_str());
 					// cout << "Value of " << v_name;
-					if (scope && scope->at(0)) { // We can add to the scope
-						scope->at(scope->size() - 1)->insert(new Variable((const char*)v_name, "NUMBER"), value);
+					if (scope && scope->size() > 0) { // We can add to the scope
+						scope->at(scope->size() - 1).emplace((const char*)v_name, std::make_pair(new Variable((const char*)v_name, "NUMBER"), value));
 					}
 					if (!strcmp("global", tokens->at(i)->getTokenValue().c_str()) || !scope) {
 						globalVariables->insert(new Variable((const char*)v_name, "NUMBER"), value);
@@ -484,7 +521,7 @@ void parse(vector<Token*>* tokens, vector <VarDictionary*>* scope) {
 	}
 }
 
-static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector<VarDictionary*>* scope, int* i, string ender) {
+static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector <map<string, pair<Variable*, const char*>>>* scope, int* i, string ender) {
 
 	// index of the first token
 	const int start_index = *i;
@@ -497,6 +534,7 @@ static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector<VarDi
 	}
 	else {
 		int j = *i;
+		int function_call_counter = 0;
 		for (; j < *tokensSize + 1; j++) {
 			if (j == *tokensSize) {
 				throw "missing a ';'\n";
@@ -504,13 +542,22 @@ static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector<VarDi
 			}
 			// regex match the ender
 
+			if (!strcmp(tokens->at(j)->getTokenKey().c_str(), "FUNC_CALL")) {
+				function_call_counter++;
+			}
+
 			regex matching(ender);
-			if (regex_match(tokens->at(j)->getTokenKey(), matching)) {
+			if (regex_match(tokens->at(j)->getTokenKey(), matching) && !function_call_counter) {
 				break;
+			}
+			else if (regex_match(tokens->at(j)->getTokenKey(), matching)) {
+				function_call_counter--;
 			}
 		}
 		int set = j - 1;
 		int check = getPossiblyTypedTokenIndex(tokens, *i);
+		// cout << "start: " << set << endl;
+		// cout << "end: " << *i - 1 << endl;
 		Expr* temp = equation(tokens, scope, &set, *i - 1 , true);
 		if (temp == nullptr) {
 			throw "Invalid expression\n";
@@ -536,7 +583,7 @@ static void checkErrors(vector <Token*>* tokens, int index, string type) {
 	}
 }
 
-static Expr* getMultDiv(vector <Token*>* tokens, vector<VarDictionary*>* scope, int* index, int end, bool get_comp) {
+static Expr* getMultDiv(vector <Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int* index, int end, bool get_comp) {
 	if (*index == end + 1) {
 		int i = *index;
 		*index = end;
@@ -562,14 +609,35 @@ static Expr* getMultDiv(vector <Token*>* tokens, vector<VarDictionary*>* scope, 
 	}
 }
 
-static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, int* index, int end, bool get_comp) {
+static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int* index, int end, bool get_comp) {
 	// cout << "start: " << *index << "\nend: " << end << endl;
 	int end_right = *index;
 	int end_left = end;
+	// cout << end_right << endl;
+	// cout << end_left << endl;
 	try {
 		if (*index == end + 1) {
 			return new Literal(getValue(&tokens->at((*index)--), scope), getType(&tokens->at(*index + 1), scope)); // Return the literal then decrement the index
-		}else if (!strcmp(getValue(&tokens->at(*index - 1), scope).c_str(), "*") ||
+		} else if(!strcmp(tokens->at(*index)->getTokenKey().c_str(), "SEMI_COLON")) { // look to see if there is a function call
+			int* call_index = new int;
+			*call_index = *index;
+			for (auto i = tokens->begin() + *index; i != tokens->begin() + end; --i) {
+				if (!strcmp((*i)->getTokenKey().c_str(), "FUNC_CALL")) {
+					// we have a function call
+					*call_index = (*i)->getIndex() - (*(tokens->begin()))->getIndex(); // set the index to start calling the function at
+					if (*call_index - 1 > end_left) {
+						const int const_call_index = *call_index - 2;
+						int stack_call_index = *call_index - 2;
+						return (new Binary(equation(tokens, scope, &stack_call_index, end_left, get_comp), tokens->at(const_call_index + 1), new Literal(tokens, scope, call_index, tokens->size(), "NUMBER")));
+					}
+					else {
+						return new Literal(tokens, scope, call_index, tokens->size(), "NUMBER");
+					}
+				}
+			}
+			*index -= 1; // if there is no function call, there is a stray semicolon. for now just ignore
+			return equation(tokens, scope, index, end);
+		} else if (!strcmp(getValue(&tokens->at(*index - 1), scope).c_str(), "*") ||
 			!strcmp(getValue(&tokens->at(*index - 1), scope).c_str(), "/")) {
 			Expr* multsAndDivs = getMultDiv(tokens, scope, index, end, get_comp);
 			if (*index == end) {
@@ -590,6 +658,7 @@ static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, in
 			else {
 				Expr* newBin = (new Binary(new Literal(getValue(&tokens->at(i - 2), scope), getType(&(tokens->at(i - 2)), scope)),
 					tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope)));
+
 				if (*index <= end + 1) {
 					return newBin;
 				}
@@ -601,6 +670,10 @@ static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, in
 				else if (!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "+") ||
 					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "-") ||
 					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "==")) {
+					return new Binary(equation(tokens, scope, index, end, get_comp),
+						tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope));
+				}
+				else if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "SEMI_COLON")) { // the next value is a function call
 					return new Binary(equation(tokens, scope, index, end, get_comp),
 						tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope));
 				}
@@ -616,7 +689,7 @@ static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, in
 			*index = end;
 			return return_value;
 		}
-		else if (!strcmp(tokens->at(*index)->getTokenValue().c_str(), ")")) {
+		else if (!strcmp(tokens->at(*index)->getTokenValue().c_str(), ")")) { // Starting of parentheses
 			int para_count = 0;
 			int next_end;
 			for (int k = *index - 1; k > end; k--) {
@@ -642,6 +715,42 @@ static Expr* equation(vector <Token*>* tokens, vector<VarDictionary*>* scope, in
 				else if (!strcmp(tokens->at(k)->getTokenValue().c_str(), "(")) {
 					para_count--;
 				}
+			}
+		}
+		else if (!strcmp(tokens->at(*index)->getTokenValue().c_str(), "COLON")) { // Potential function call inside an expression
+			int nested = 0;
+			while (*index > end) {
+				if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "FUNC_CALL") && nested == 0) {
+					break;
+				}
+				else if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "FUNC_CALL")) {
+					nested -= 1;
+				}
+				else if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "COLON")) {
+					nested += 1;
+				}
+				(*index)--;
+			}
+
+			if (*index == end) {
+				cerr << "Expected a function call but no call was given.";
+				throw "\n";
+			}
+
+			int next_end = *index - 1;
+			Function* given_function = callFunction(tokens, scope, index, tokens->size());
+
+			// now do the equation stuff
+			int before = *index;
+			*index = *index - 1;
+			if (next_end <= end + 1) {
+				*index = end;
+				return new Literal(given_function->return_value, "STRING");
+			}
+			else {
+				*index = before;
+				int p_next_end = next_end - 2;
+				return new Binary(equation(tokens, scope, &p_next_end, end, get_comp), tokens->at(next_end - 1), new Literal(given_function->return_value, "STRING"), getType(&(tokens->at(next_end)), scope));
 			}
 		}
 		else {

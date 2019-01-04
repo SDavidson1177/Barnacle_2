@@ -13,22 +13,22 @@ struct IfStatement {
 struct IfNode {
 	Expr* condition;
 	struct IfNode* next;
-	vector<VarDictionary*> scope;
+	vector <map<string, pair<Variable*, const char*>>> scope;
 	vector <Token*> tokens;
 };
 
 struct IfStatement* initIfStatement();
 
-struct IfNode* initIfNode(Expr* cond, vector<VarDictionary*>* inher_scope = nullptr);
+struct IfNode* initIfNode(Expr* cond, vector <map<string, pair<Variable*, const char*>>>* inher_scope = nullptr);
 
-int addIfNode(struct IfStatement** st, Expr* cond, std::vector<Token*>* tokens, int start, int end, vector<VarDictionary*>* inher_scope = nullptr);
+int addIfNode(struct IfStatement** st, Expr* cond, std::vector<Token*>* tokens, int start, int end, vector <map<string, pair<Variable*, const char*>>>* inher_scope = nullptr);
 
 struct IfNode* evaluateIfStatement(struct IfStatement* st);
 
 void appendScope(struct IfNode* st, VarDictionary** appending_scope);
 
 template <class control_flow>
-void extendScope(control_flow st, vector<VarDictionary*>* extending_scope);
+void extendScope(control_flow st, vector <map<string, pair<Variable*, const char*>>>* extending_scope);
 
 void destroyIfStatement(struct IfStatement* st);
 
@@ -38,11 +38,11 @@ void destroyIfNode(struct IfNode* nd);
 
 struct WhileLoop {
 	Expr* condition;
-	vector<VarDictionary*> scope;
+	vector <map<string, pair<Variable*, const char*>>> scope;
 	vector <Token*> tokens;
 };
 
-struct WhileLoop* initWhileLoop(Expr* cond, vector<Token*>* tokens, int start, int end, vector<VarDictionary*>* inher_scope);
+struct WhileLoop* initWhileLoop(Expr* cond, vector<Token*>* tokens, int start, int end, vector <map<string, pair<Variable*, const char*>>>* inher_scope);
 
 void destroyWhileLoop(struct WhileLoop* wl);
 
@@ -52,12 +52,12 @@ struct Function {
 	int numOfArgs;
 	string ID;
 	vector<string> argv;
-	vector<VarDictionary*> scope;
+	vector <map<string, pair<Variable*, const char*>>> scope;
 	vector <Token*> tokens;
 	std::string return_value;
 };
 
-struct Function* initFunction(string given_ID, vector<string>*argv, vector<Token*>* tokens, int start, int end, vector<VarDictionary*>* inher_scope);
+struct Function* initFunction(string given_ID, vector<string>*argv, vector<Token*>* tokens, int start, int end, vector <map<string, pair<Variable*, const char*>>>* inher_scope);
 
 void printFunction(struct Function* f);
 

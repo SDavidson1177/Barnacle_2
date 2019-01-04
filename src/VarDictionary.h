@@ -9,6 +9,8 @@ private:
 public:
 	VarDictionary();
 
+	VarDictionary(Variable* key, const char* value);
+
 	~VarDictionary();
 
 	void insert(Variable* key, const char* value);

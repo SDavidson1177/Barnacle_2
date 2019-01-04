@@ -27,6 +27,10 @@ std::string Token::getTokenValue() {
 	return this->value;
 }
 
+int Token::getIndex() {
+	return this->index;
+}
+
 void Token::coutToken() {
 	std::cout << "(" << this->key << "," << this->value << ", " << this->index << ")\n";
 }

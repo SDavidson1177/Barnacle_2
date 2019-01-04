@@ -1,5 +1,6 @@
 #include "Expression.h"
 #include "languageio.h"
+#include "controlflow.h"
 #include <iostream>
 
 using namespace std;
@@ -569,14 +570,17 @@ string Expr::evaluate() {
 			return "";
 		}
 		else if (this->left == nullptr && this->right == nullptr) {
-			// cout << this->getType();
-			return this->value;
+			return this->getValue();
 		}
 		
 		string (*op_function)(Expr*, Expr*, Expr*) = (string (*) (Expr*, Expr*, Expr*))operation_functions.lookup(this->op->getTokenValue().c_str());
 		this->value = (*op_function)(this->left, this->right, this);
 		//cout << "the value: " << this->value;
 		return this->value;
+}
+
+std::string Expr::getValue() {
+	return this->value;
 }
 
 // Binary
@@ -593,11 +597,44 @@ Binary::~Binary() {
 	
 }
 
+std::string Binary::getValue() {
+	return this->value;
+}
+
 // Literal
 
-Literal::Literal(string value, string type) {
+	// Value
+
+Literal::Value::Value(std::string p_value) :val{ p_value }, func{ nullptr }, callFunction{nullptr} {
+
+}
+Literal::Value::Value(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index, const int tokensSize)
+	: val{ "" }, func{ new Literal::Value::FunctionConditions{tokens, scope, index, tokensSize } } {
+	this->callFunction = Literal::function_parser;
+}
+Literal::Value::~Value() {
+	delete this->func;
+}
+
+std::string Literal::Value::getValue() {
+	if (this->func != nullptr) {
+		Function* retval = callFunction(this->func->tokens, this->func->scope, this->func->index, this->func->tokensSize);
+		return retval->return_value;
+	}
+	return this->val;
+}
+
+Literal::Literal(string value, string type) : literal_value{value} {
 	this->type = type;
 	this->value = value;
+	this->left = nullptr;
+	this->op = nullptr;
+	this->right = nullptr;
+}
+
+Literal::Literal(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index, const int tokensSize, string type) : literal_value{tokens, scope, index, tokensSize} {
+	this->type = type;
+	this->value = "";
 	this->left = nullptr;
 	this->op = nullptr;
 	this->right = nullptr;
@@ -615,4 +652,9 @@ Literal::~Literal() {
 	if (this->op != nullptr) {
 		delete op;
 	}
+}
+
+std::string Literal::getValue() {
+	this->value = this->literal_value.getValue();
+	return this->value;
 }

@@ -38,6 +38,12 @@ VarDictionary::VarDictionary() {
 		printVarDictKey, printVarDictValue);
 }
 
+VarDictionary::VarDictionary(Variable* key, const char* value) {
+	this->var_dict = new Dictionary(voidStrCmp, destroyVarDictKey, destroyVarDictValue,
+		printVarDictKey, printVarDictValue);
+	this->insert(key, value);
+}
+
 VarDictionary::~VarDictionary() {
 	delete this->var_dict;
 }
