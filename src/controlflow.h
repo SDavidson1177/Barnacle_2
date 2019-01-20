@@ -13,7 +13,7 @@ struct IfStatement {
 struct IfNode {
 	Expr* condition;
 	struct IfNode* next;
-	vector <map<string, pair<Variable*, const char*>>> scope;
+	vector <map<string, pair<Variable*, const char*>>>* scope;
 	vector <Token*> tokens;
 };
 
@@ -25,7 +25,7 @@ int addIfNode(struct IfStatement** st, Expr* cond, std::vector<Token*>* tokens, 
 
 struct IfNode* evaluateIfStatement(struct IfStatement* st);
 
-void appendScope(struct IfNode* st, VarDictionary** appending_scope);
+// void appendScope(struct IfNode* st, VarDictionary** appending_scope);
 
 template <class control_flow>
 void extendScope(control_flow st, vector <map<string, pair<Variable*, const char*>>>* extending_scope);
@@ -38,7 +38,7 @@ void destroyIfNode(struct IfNode* nd);
 
 struct WhileLoop {
 	Expr* condition;
-	vector <map<string, pair<Variable*, const char*>>> scope;
+	vector <map<string, pair<Variable*, const char*>>>* scope;
 	vector <Token*> tokens;
 };
 

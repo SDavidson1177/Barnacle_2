@@ -91,6 +91,32 @@ Variable* getKey(Token** lookup, vector <map<string, pair<Variable*, const char*
 	return nullptr;
 }
 
+bool setVariableValue(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope, string& value) {
+	if (scope && !strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
+		const char** var = nullptr;
+		if (scope) { // try to find the variable by checking the scope of nested functions/loops/statements
+			int depth = 0;
+			int max_depth = scope->size();
+			while (depth < max_depth && !var) {
+				auto map_to_var = (scope->at(depth).find((*lookup)->getTokenValue()));
+				if (map_to_var != scope->at(depth).end()) {
+					(*map_to_var).second.second = value.c_str();
+					return true;
+				}
+				depth++;
+			}
+		}
+		if (!var) { // It must be a global variable if it is not in any functions/loops/statements scope;
+			var = globalVariables->p_lookup((*lookup)->getTokenValue().c_str());
+			if (var) {
+				*var = value.c_str();
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 const char** p_getValue(Token** lookup, vector <map<string, pair<Variable*, const char*>>>* scope) {
 	if (!strcmp((*lookup)->getTokenKey().c_str(), "SYMBOL")) {
 		const char** var = nullptr;
@@ -166,39 +192,33 @@ void getArguments(Function **func, vector<Token*>* tokens, vector <map<string, p
 
 Function* callFunction(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope, int *index, const int tokensSize) {
 	(*index)++;
-	if (true) {
-		Function* given_function = new Function;
-		given_function = functions->get(getValue(&tokens->at((*index)), scope).c_str());
-		Function &func_ref = *given_function;
-		// If we have a valid function name given
-		if (!strcmp(tokens->at((*index))->getTokenKey().c_str(), "SYMBOL") && given_function != nullptr) {
-			// Get all arguments and pass it to the function for evaluation.
-			getArguments(&given_function, tokens, scope, index);
-			IN_FUNCTION = true;
-			// vector <VarDictionary*>* s = new vector <VarDictionary*>;
-			//*s = given_function->scope;
-			parse(&(given_function->tokens), &(given_function->scope));
-			STACK_UNWIND = false;
-			IN_FUNCTION = false;
-			given_function->return_value = RETURN; // if no return value is given, the default is the empty string
-			RETURN = "";
-			return given_function;
-		}
-		else {
-			cout << "Expected a function name given for call.";
-		}
-		delete given_function;
+	Function* given_function = new Function;
+	given_function = functions->get(getValue(&tokens->at((*index)), scope).c_str());
+	Function &func_ref = *given_function;
+	// If we have a valid function name given
+	if (!strcmp(tokens->at((*index))->getTokenKey().c_str(), "SYMBOL") && given_function != nullptr) {
+		// Get all arguments and pass it to the function for evaluation.
+		getArguments(&given_function, tokens, scope, index);
+		IN_FUNCTION = true;
+		// vector <VarDictionary*>* s = new vector <VarDictionary*>;
+		//*s = given_function->scope;
+		parse(&(given_function->tokens), &(given_function->scope));
+		STACK_UNWIND = false;
+		IN_FUNCTION = false;
+		given_function->return_value = RETURN; // if no return value is given, the default is the empty string
+		RETURN = "";
+		return given_function;
 	}
-	/*else {
-		cout << "Too few tokens for function call";
-		throw "\n";
-	}*/
+	else {
+		cout << "Expected a function name given for call.";
+	}
+	delete given_function;
 	return nullptr;
 }
 
 /*Seems as though we can ignore the index variable*/
 void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const char*>>>* scope) {
-	assert(tokens);
+	if (!tokens) { return; }
 	try {
 		int tokensSize = tokens->size();
 
@@ -254,7 +274,19 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 					}
 					struct IfNode* true_node = evaluateIfStatement(if_eval);
 					if (true_node) { // we can parse the tokens as long as there is a true node
-						parse(&(true_node->tokens), &(true_node->scope));
+						if (!true_node->scope) {
+							true_node->scope = new vector <map<string, pair<Variable*, const char*>>>;
+						}
+						else {
+							scope->emplace_back(); // PROBLEM HERE
+						}
+						parse(&(true_node->tokens), true_node->scope);
+						if (true_node->scope->size() > 0) {
+							true_node->scope->pop_back();
+						}
+						if (true_node->scope && true_node->scope->size() == 0) {
+							delete true_node->scope;
+						}
 						if (STACK_UNWIND) {
 							return;
 						}
@@ -265,14 +297,23 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 				else if (!strcmp(tokens->at(i)->getTokenValue().c_str(), "while")) {
 					i += 1; // go to the beginning of the condition
 					const int reset = i;
-					int check = getPossiblyTypedTokenIndex(tokens, i);
-					string given_type = getType(&(tokens->at(check)), scope);
+					// int check = getPossiblyTypedTokenIndex(tokens, i);
+					// string given_type = getType(&(tokens->at(check)), scope);
 					Expr* exp = prepEquation(tokens, &tokensSize, scope, &i, "COLON"); // get the condition
-
 					int start = i + 1;
-					int end = i + 1;
+					int end = start;
 
-					while (end < tokensSize && strcmp(tokens->at(end)->getTokenValue().c_str(), "endloop")) { // set the end of the token list
+					int nested_whiles = 0;
+					
+					while (end < tokensSize && !(!strcmp(tokens->at(end)->getTokenValue().c_str(), "endloop") && !nested_whiles)) { // set the end of the token list
+
+						string value = tokens->at(end)->getTokenValue().c_str();
+
+						if (value == "while") {
+							nested_whiles += 1;
+						}else if (value == "endloop") {
+							nested_whiles -= 1;
+						}
 						end++;
 					}
 
@@ -280,21 +321,30 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 						cout << "Expected an endloop";
 						throw "\n";
 					}
+		
 					vector<VarDictionary*> given_scope;
 
 					// Create the while loop
 					struct WhileLoop* while_eval = initWhileLoop(exp, tokens, start, end, scope);
 					Expr cached_condition = *exp;
 					exp->evaluate();
-
+					if (!while_eval->scope) {
+						while_eval->scope = new vector <map<string, pair<Variable*, const char*>>>;
+					}
+					else {
+						while_eval->scope->emplace_back();
+					}
 					while (!strcmp("1", while_eval->condition->value.c_str())) {
-						parse(&(while_eval->tokens), &(while_eval->scope));
+						parse(&(while_eval->tokens), while_eval->scope);
 						if (STACK_UNWIND) {
 							return;
 						}
 						i = reset;
 						while_eval->condition = prepEquation(tokens, &tokensSize, scope, &i, "COLON"); // get the condition;
 						while_eval->condition->evaluate();
+					}
+					if (while_eval->scope->size() > 0) {
+						while_eval->scope->pop_back();
 					}
 					i = end;
 				}
@@ -305,17 +355,15 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 						throw "\n";
 					}
 
-					int check = getPossiblyTypedTokenIndex(tokens, i);
 					const int index = i;
 					Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
 					exp->evaluate();
-					*p_getValue(&(tokens->at(index - 2)), scope) = exp->value.c_str();
+					setVariableValue(&(tokens->at(index - 2)), scope, exp->value);
 				}
 				else {
 					string given_type = getType(&(tokens->at(i)), scope);
 					Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
 					exp->evaluate();
-					//cout << "The value " << exp->value << endl;
 					i++;
 				}
 			}
@@ -391,12 +439,19 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 					throw "\n";
 				}
 				else {
-					int check = getPossiblyTypedTokenIndex(tokens, i + 1);
-					i++;
-					string given_type = getType(&(tokens->at(check)), scope);
-					Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
-					exp->evaluate();
-					cout << exp->value << endl;
+					if (i + 1 <= tokensSize && !strcmp(tokens->at(i + 1)->getTokenKey().c_str(), "NEW_LINE")) { // handling new lines for now
+						cout << endl;
+						i++;
+					}
+					else {
+						int check = getPossiblyTypedTokenIndex(tokens, i + 1);
+						i++;
+						string given_type = getType(&(tokens->at(check)), scope);
+						Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
+						exp->print();
+						exp->evaluate();
+						cout << exp->value;
+					}
 				}
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "RETURN")) {
@@ -477,13 +532,10 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 					char* new_type = (char*)malloc((strlen(given_type.c_str()) + 1) * sizeof(char));
 					strcpy(value, exp->value.c_str());
 					strcpy(new_type, given_type.c_str());
-					// cout << "Value of " << value << " : " << new_type << endl;
 					if (scope && scope->size() > 0) { // We can add to the scope
-						cout << "Giving local value " << value << " to " << v_name << "\n";
 						scope->at(scope->size() - 1).emplace((const char*)v_name, std::make_pair(new Variable((const char*)v_name, new_type), value));
 					}
 					if (!strcmp("global", tokens->at(temp - 1)->getTokenValue().c_str()) || !scope) {
-						cout << "Giving global value " << value << " to " << v_name << "\n";
 						globalVariables->insert(new Variable((const char*)v_name, new_type), value);
 					}
 					// Next, if there is a variable declaration without an initial value
@@ -499,7 +551,6 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 					exp->evaluate();
 					char* value = (char*)malloc((strlen(exp->value.c_str()) + 1) * sizeof(char));
 					strcpy(value, exp->value.c_str());
-					// cout << "Value of " << v_name;
 					if (scope && scope->size() > 0) { // We can add to the scope
 						scope->at(scope->size() - 1).emplace((const char*)v_name, std::make_pair(new Variable((const char*)v_name, "NUMBER"), value));
 					}
@@ -599,7 +650,7 @@ static Expr* getMultDiv(vector <Token*>* tokens, vector <map<string, pair<Variab
 		!strcmp(getValue(&(tokens->at(*index - 1)), scope).c_str(), "/")) {
 		int i = *index;
 		*index -= 2;
-		return (new Binary(equation(tokens, scope, index, end, get_comp), tokens->at(i - 1),
+		return (new Binary(getMultDiv(tokens, scope, index, end, get_comp), tokens->at(i - 1),
 			new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope)));
 	}
 	else {

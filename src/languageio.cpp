@@ -65,6 +65,7 @@ void initInterpreter() {
 	specialSymbols.insert("return", "RETURN");
 	specialSymbols.insert("cin", "CONSOLE_IN");
 	specialSymbols.insert("cout", "CONSOLE_OUT");
+	specialSymbols.insert("endl", "NEW_LINE"); // ERROR here causing endlooop instead of endloop
 	specialSymbols.insert("function", "FUNC_DEF");
 	specialSymbols.insert("call", "FUNC_CALL");
 	specialSymbols.insert("*", "OPERATOR");
@@ -208,6 +209,9 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					}
 					else {
 						const char* key = stopSymbols.lookup(token);
+						if (!key) {
+							key = specialSymbols.lookup(token);
+						}
 						a->push_back(new Token(!key ? "SYMBOL" : key, token, index));
 						index++;
 					}
@@ -272,6 +276,9 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 			}
 			else {
 				const char* key = stopSymbols.lookup(token);
+				if (!key) {
+					key = specialSymbols.lookup(token);
+				}
 				a->push_back(new Token(!key ? "SYMBOL" : key, token, index));
 				index++;
 			}

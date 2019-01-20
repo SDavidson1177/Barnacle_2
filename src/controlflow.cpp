@@ -28,7 +28,6 @@ int addIfNode(struct IfStatement** st, Expr* cond, vector<Token*>* tokens, int s
 
 		struct IfNode** nd = &((*st)->start);
 		while (*nd) {
-			// cout << "another node layer\n";
 			nd = &((*nd)->next);
 		}
 		(*nd) = initIfNode(cond, inher_scope);
@@ -38,9 +37,8 @@ int addIfNode(struct IfStatement** st, Expr* cond, vector<Token*>* tokens, int s
 			throw "\n";
 		}
 
-		int size = tokens->size();
-		for (int i = start; i < size && i < end; i++) {
-			(*nd)->tokens.push_back(tokens->at(i));
+		for (auto i = tokens->begin() + start; i != tokens->end() && i != tokens->begin() + end; ++i) {
+			(*nd)->tokens.push_back(*i);
 		}
 	}
 	catch (const char* c) {
@@ -51,27 +49,26 @@ int addIfNode(struct IfStatement** st, Expr* cond, vector<Token*>* tokens, int s
 
 void appendScope(struct IfNode* st, map<string, pair<Variable*, const char*>>* appending_scope) {
 	if (appending_scope) {
-		st->scope.push_back(*appending_scope);
+		st->scope->push_back(*appending_scope);
 	}
 }
 
 template <class control_flow>
 void extendScope(control_flow st, vector <map<string, pair<Variable*, const char*>>>* extending_scope) {
 	if (extending_scope) {
-		int size = extending_scope->size();
-		for (int i = 0; i < size; i++) {
-			st->scope.push_back(extending_scope->at(i));
+		for (auto i = extending_scope->begin(); i != extending_scope->end(); ++i) {
+			st->scope.emplace_back(*i);
 		}
 	}
 }
 
 static struct IfNode* evaluateIfNode(struct IfNode** nd) {
 	if (!(*nd)) {
-		//cout << "nullptr IfNode\n";
+		// cout << "nullptr IfNode\n";
 		return nullptr;
 	}
 	(*nd)->condition->evaluate();
-	// cout << "Here is the value " << (*nd)->condition->value.c_str() << endl;
+
 	if (!strcmp("1", (*nd)->condition->value.c_str())) {
 		return (*nd);
 	}
@@ -93,13 +90,12 @@ void destroyIfStatement(struct IfStatement* is) {
 // Initialize an IfNode
 struct IfNode* initIfNode(Expr* cond, vector <map<string, pair<Variable*, const char*>>>* inher_scope) {
 	if (!cond) {
-		cout << "nullptr cond passed\n";
+		cout << "nullptr condition passed\n";
 		return nullptr;
 	}
 	struct IfNode* nd = new struct IfNode;
 	nd->condition = cond;
-	extendScope(nd, inher_scope);
-	nd->scope.push_back(map<string, pair<Variable*, const char*>>());
+	nd->scope = inher_scope; // point to the given scope's information
 	nd->next = nullptr;
 	return nd;
 }
@@ -121,12 +117,11 @@ struct WhileLoop* initWhileLoop(Expr* cond, vector<Token*>* tokens, int start, i
 	}
 	struct WhileLoop* wl = new struct WhileLoop;
 	wl->condition = cond;
-	extendScope(wl, inher_scope);
-	wl->scope.push_back(map<string, pair<Variable*, const char*>>());
+	wl->scope = inher_scope;
 
 	int size = tokens->size();
-	for (int i = start; i < size && i < end; i++) {
-		wl->tokens.push_back(tokens->at(i));
+	for (auto i = tokens->begin() + start; i != tokens->end() && i != tokens->begin() + end; ++i) {
+		wl->tokens.push_back(*i);
 	}
 	return wl;
 }
