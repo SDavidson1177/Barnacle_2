@@ -2,6 +2,7 @@
 #include "StringDictionary.h"
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <string.h>
 #include <cstdlib>
@@ -100,13 +101,13 @@ void initInterpreter() {
 	logicDictionary.insert("&&", "AND");
 }
 
-static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* len, int* maxlen, int &index, char** stringChar=nullptr) {
+static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* len, int* maxlen, int &index, istringstream& text, char** stringChar = nullptr) {
 	char c;
 
 	//Handle the case for special symbols
 	const char* special = specialSymbols.lookup(*token);
 	if (special != nullptr) {
-			if (fscanf(*f, "%c", &c) == 1 && c != ' ' && c != '\n' && c != '\t') {
+			if ((f == nullptr ? !((text >> noskipws >> c).fail()) : (fscanf(*f, "%c", &c) == 1)) && c != ' ' && c != '\n' && c != '\t') {
 				int size = strlen(*token);
 				char* bonus = (char*)malloc((2 + size)*sizeof(char));
 				strcpy(bonus, *token);
@@ -144,9 +145,9 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 							*maxlen = 4;
 							(*token)[0] = c;
 							(*token)[1] = 0;
-							getSpecialSymbols(f, a, token, len, maxlen, index, stringChar);
+							getSpecialSymbols(f, a, token, len, maxlen, index, text, stringChar);
 						}
-						else if (stopSymbols.lookup(*token) || compDictionary.lookup(*token)) {
+						else if (stopSymbols.lookup(*token) || compDictionary.lookup(*token)) { 
 							a->push_back(new Token(special, *token, index)); // push back the token we have
 							index++;
 							*token = (char*)realloc(*token, 4 * sizeof(char));
@@ -154,9 +155,27 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 							*maxlen = 4;
 							(*token)[0] = c;
 							(*token)[1] = 0;
-							getSpecialSymbols(f, a, token, len, maxlen, index, stringChar);
+							getSpecialSymbols(f, a, token, len, maxlen, index, text, stringChar);
 						}
-						// Do nothing if nothing else is satisfied. The special symbol may be a small part of another symbol
+						else if (stopSymbols.lookup(val) || compDictionary.lookup(val)) { // check if there is a stop symbol on the end
+							a->push_back(new Token(special, *token, index)); // push back the token we have
+							index++;
+							*token = (char*)realloc(*token, 4 * sizeof(char));
+							*len = 2;
+							*maxlen = 4;
+							(*token)[0] = c;
+							(*token)[1] = 0;
+							getSpecialSymbols(f, a, token, len, maxlen, index, text, stringChar);
+						}
+						else {
+							if (*len >= *maxlen) { // we do not have a special symbol. So add on the character to the end and continue
+								*maxlen *= 2;
+								*token = (char*)realloc(*token, *maxlen * sizeof(char));
+							}
+							(*token)[*len - 1] = c;
+							(*token)[*len] = 0;
+							(*len)++;
+						}
 					}
 				}
 		}
@@ -172,9 +191,13 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 	//------------------------------------------
 }
 
-void readTokens(const char* file, vector <Token*>* a, int &index) {
+void readTokens(const char* file, vector <Token*>* a, int &index, string text) {
 	FILE* f;
-	f = fopen(file,  "r");
+	istringstream scanned_string{text};
+	if (file) { // if we are reading from a file
+		f = fopen(file, "r");
+	}
+
 	char c;
 	char* token = (char*)malloc(2*sizeof(char));
 	char* stringChar = (char*)malloc(NO_STRING_LEN*sizeof(char));
@@ -182,7 +205,8 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 	int len = 1;
 	int maxlen = 2;
 	//Inital additions to the token.
-	if (fscanf(f, " %c", &c) != 1) {
+	if (file == nullptr ? (scanned_string >> c).fail() : (fscanf(f, " %c", &c) != 1)) { // if we are reading a file, use fscanf
+																					  // if we are reading a string, use sscanf
 		free(token);
 		return;
 	}
@@ -190,15 +214,14 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 		token[0] = 0;
 	}
 
-	if (f) {
+	if (file == nullptr ? true : f) {
 		do {
 			char val[] = { c , '\0' };
 			bool is_stop_char = (stopSymbols.lookup(val) != nullptr);
 			char* string_char = (char*)stringCharacters.lookup(val);
 			bool is_string_char = (string_char != nullptr);
-			if (!strcmp(stringChar, NO_STRING) && (c == ' ' || c == '\n' || c == '\t' || is_stop_char || is_string_char)) {
-				if (len > 1) {
-					// ERROR NOT HERE
+			if (!strcmp(stringChar, NO_STRING) && (c == ' ' || c == '\n' || c == '\t' || is_stop_char || is_string_char)) { // when starting a string
+				if (len > 1) { // push back the current token into the token vector
 					if (!isNaN(token)) {
 						a->push_back(new Token("NUMBER", token, index));
 						index++;
@@ -217,7 +240,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					}
 				}
 
-				if (is_string_char) {
+				if (is_string_char) { // if the retrieved character starts a string
 					strcpy(stringChar, string_char);
 					token = (char*)realloc(token, 4 * sizeof(char));
 					// CHANGE later to not add string character at the beginning of the token
@@ -225,16 +248,20 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					token[1] = 0;
 					len = 2;
 					maxlen = 4;
-				}else if (is_stop_char) {
+				}else if (is_stop_char) { // if the retrieved character is a stop symbol
 					token = (char*)realloc(token, 4 * sizeof(char));
 					token[0] = c;
 					token[1] = 0;
 					len = 2;
 					maxlen = 4;
-					getSpecialSymbols(&f, a, &token, &len, &maxlen, index, &stringChar);
-
+					if (!file) { // if we are not reading from a file, use the string
+						getSpecialSymbols(nullptr, a, &token, &len, &maxlen, index, scanned_string, &stringChar);
+					}
+					else {
+						getSpecialSymbols(&f, a, &token, &len, &maxlen, index, scanned_string, &stringChar);
+					}
 				}
-				else {
+				else { // else we had a token end. Start a new token now
 					token = (char*)realloc(token, 2 * sizeof(char));
 					len = 1;
 					maxlen = 2;
@@ -249,7 +276,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 				token[len - 1] = c;
 				token[len] = 0;
 				len++;
-				if (is_string_char && !strcmp(stringChar, string_char)) {
+				if (is_string_char && !strcmp(stringChar, string_char)) { // make a string since we have a closing string
 					removeQuotes(&token);
 					a->push_back(new Token(string_char, token, index));
 					index++;
@@ -261,10 +288,15 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 					token[0] = 0;
 				}
 				else {
-					getSpecialSymbols(&f, a, &token, &len, &maxlen, index, &stringChar);
+					if (file == nullptr) { // if we are not reading from a file, use the string
+						getSpecialSymbols(nullptr, a, &token, &len, &maxlen, index, scanned_string, &stringChar);
+					}
+					else {
+						getSpecialSymbols(&f, a, &token, &len, &maxlen, index, scanned_string, &stringChar);
+					}
 				}
 			}
-		} while (fscanf(f, "%c", &c) == 1);
+		} while (file == nullptr ? !((scanned_string >> noskipws >> c).fail()) : fscanf(f, "%c", &c) == 1);
 		if (len > 1) {
 			if (!isNaN(token)) {
 				a->push_back(new Token("NUMBER", token, index));
@@ -284,7 +316,9 @@ void readTokens(const char* file, vector <Token*>* a, int &index) {
 			}
 		}
 		free(token);
-		fclose(f);
+		if (file) {
+			fclose(f);
+		}
 	}
 }
 

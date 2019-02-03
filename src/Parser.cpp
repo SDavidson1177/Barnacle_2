@@ -370,11 +370,6 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "NUMBER") || 
 				!strcmp(tokens->at(i)->getTokenKey().c_str(), "L_PAREN")) {
-				int check = i;
-				while (strcmp(tokens->at(check)->getTokenKey().c_str(), "NUMBER") && strcmp(tokens->at(check)->getTokenKey().c_str(), "STRING")) {
-					check += 1;
-				}
-				string given_type = getType(&(tokens->at(check)), scope);
 				prepEquation(tokens, &tokensSize, scope, &i);
 			}
 			else if (!strcmp(tokens->at(i)->getTokenKey().c_str(), "STRING")) {
@@ -449,7 +444,7 @@ void parse(vector<Token*>* tokens, vector <map<string, pair<Variable*, const cha
 						i++;
 						string given_type = getType(&(tokens->at(check)), scope);
 						Expr* exp = prepEquation(tokens, &tokensSize, scope, &i);
-						exp->print();
+						// exp->print();
 						exp->evaluate();
 						cout << exp->value;
 					}
@@ -585,7 +580,7 @@ static Expr* prepEquation(vector <Token*>* tokens, int* tokensSize, vector <map<
 		throw "Incomplete expression. Expected a semi colon or operator.\n";
 	}
 	else {
-		int j = *i;
+		int j = start_index;
 		int function_call_counter = 0;
 		for (; j < *tokensSize + 1; j++) {
 			if (j == *tokensSize) {
@@ -667,27 +662,29 @@ static Expr* comparisonEquation(vector <Token*>* tokens, vector <map<string, pai
 	int comp_index = -1;
 	int left = end;
 	int right = *index;
-	for (auto i = tokens->begin() + end + 1; i != tokens->end() && i != tokens->begin() + *index + 1; ++i) {
-		if (!strcmp((*i)->getTokenKey().c_str(), "L_PAREN")) {
-			left = ind;
+	if (end + 1 < tokens->size() - 1) {
+		for (auto i = tokens->begin() + (end + 1); i != tokens->end() && i != tokens->begin() + *index + 1; ++i) {
+			if (!strcmp((*i)->getTokenKey().c_str(), "L_PAREN") || !strcmp((*i)->getTokenKey().c_str(), "R_PAREN")) {
+				return equation(tokens, scope, index, end, get_comp);
+			}
+			else if (!strcmp((*i)->getTokenKey().c_str(), "COMPARISON") && comp_index == -1) {
+				comp_index = ind;
+			}
+			ind++;
 		}
-		else if (!strcmp((*i)->getTokenKey().c_str(), "R_PAREN") && right == *index) {
-			right = ind - 1;
-			cout << right << endl;
+
+		if (comp_index == -1) { // no comparison so treat as regular equation
+			return equation(tokens, scope, index, end, get_comp);
 		}
-		else if (!strcmp((*i)->getTokenKey().c_str(), "COMPARISON") && comp_index == -1) {
-			comp_index = ind;
+		else { // we have some kind of comparison
+			int left_of_comp = comp_index - 1;
+			int right_of_comp = comp_index;
+			return new Binary(equation(tokens, scope, &left_of_comp, left, get_comp), tokens->at(comp_index), comparisonEquation(tokens, scope, &right, right_of_comp, get_comp), "NUMBER");
 		}
-		ind++;
 	}
-	
-	if (comp_index == -1) { // no comparison so treat as regular equation
+	else {
+		cout << "here\n";
 		return equation(tokens, scope, index, end, get_comp);
-	}
-	else { // we have some kind of comparison
-		int left_of_comp = comp_index - 1;
-		int right_of_comp = comp_index;
-		return new Binary(equation(tokens, scope, &left_of_comp, left, get_comp), tokens->at(comp_index), comparisonEquation(tokens, scope, &right, right_of_comp, get_comp), "NUMBER");
 	}
 }
 
@@ -695,8 +692,6 @@ static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable
 	// cout << "start: " << *index << "\nend: " << end << endl;
 	int end_right = *index;
 	int end_left = end;
-	// cout << end_right << endl;
-	// cout << end_left << endl;
 	try {
 		if (*index == end + 1) {
 			return new Literal(getValue(&tokens->at((*index)--), scope), getType(&tokens->at(*index + 1), scope)); // Return the literal then decrement the index
@@ -741,20 +736,19 @@ static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable
 				Expr* newBin = (new Binary(new Literal(getValue(&tokens->at(i - 2), scope), getType(&(tokens->at(i - 2)), scope)),
 					tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope)));
 
-				if (*index <= end + 1) {
+				if (*index <= end + 1) { // if we are at the end of the equation, make the token to the right of the operator as the
+										 // entire right side of the equation (since we are done).
 					return newBin;
 				}
 				else if (!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "*") ||
-					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "/")) {
+					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "/") || 
+					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "+") ||
+					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "-") ||
+					!strcmp(tokens->at(*index - 1)->getTokenKey().c_str(), "COMPARISON")) { // for normal bedmas, the left side is the rest of the equation
 					return new Binary(equation(tokens, scope, index, end, get_comp),
 						tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope));
 				}
-				else if (!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "+") ||
-					!strcmp(tokens->at(*index - 1)->getTokenValue().c_str(), "-")) {
-					return new Binary(equation(tokens, scope, index, end, get_comp),
-						tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope));
-				}
-				else if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "SEMI_COLON")) { // the next value is a function call
+				else if (!strcmp(tokens->at(*index)->getTokenKey().c_str(), "SEMI_COLON")) { // the next value is a function call if we have a semi colon
 					return new Binary(equation(tokens, scope, index, end, get_comp),
 						tokens->at(i - 1), new Literal(getValue(&tokens->at(i), scope), getType(&(tokens->at(i)), scope)), getType(&(tokens->at(i)), scope));
 				}
@@ -782,7 +776,7 @@ static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable
 					// now do the equation stuff
 					int before = *index;
 					*index = *index - 1;
-					Expr* temp = equation(tokens, scope, index, next_end, get_comp);
+					Expr* temp = comparisonEquation(tokens, scope, index, next_end, get_comp);
 					if (next_end <= end + 1) {
 						*index = end;
 						return temp;
@@ -790,7 +784,7 @@ static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable
 					else {
 						*index = before;
 						int p_next_end = next_end - 2;
-						return new Binary(equation(tokens, scope, &p_next_end, end, get_comp), tokens->at(next_end - 1), temp, getType(&(tokens->at(next_end)), scope));
+						return new Binary(comparisonEquation(tokens, scope, &p_next_end, end, get_comp), tokens->at(next_end - 1), temp, getType(&(tokens->at(next_end)), scope));
 					}
 				}
 				else if (!strcmp(tokens->at(k)->getTokenValue().c_str(), "(")) {
