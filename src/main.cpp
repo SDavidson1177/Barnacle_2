@@ -3,7 +3,10 @@
 #include <fstream>
 #include <assert.h>
 #include "Parser.h"
-//#include "languageio.h"
+#include "languageio.h"
+
+// Defines
+#undef DEBUG_TOKENS
 
 using namespace std;
 
@@ -20,12 +23,13 @@ int main(int argc, char** argv) {
 
 	if (argc > 1) { // for opening and running a file
 		readTokens(argv[1], &tokens, tk_ref);
+#ifdef DEBUG_TOKENS
 		cout << "--Lexer--\n";
 		int size = tokens.size();
 		for (int i = 0; i < size; i++) {
 			tokens.at(i)->coutToken();
 		}
-
+#endif
 		cout << "\n--Parser--\n";
 		parse(&tokens);
 	}
@@ -37,11 +41,13 @@ int main(int argc, char** argv) {
 		cout << ">>>";
 		while (getline(cin, input)) {
 			readTokens(nullptr, &tokens, tk_ref, input);
-			/*cout << "--Lexer--\n";
+#ifdef DEBUG_TOKENS
+			cout << "--Lexer--\n";
 			int size = tokens.size();
 			for (int i = 0; i < size; i++) {
 				tokens.at(i)->coutToken();
-			}*/
+			}
+#endif
 			parse(&tokens);
 			tokens.clear();
 			cout << "\n>>>";

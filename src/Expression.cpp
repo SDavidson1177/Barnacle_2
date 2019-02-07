@@ -84,7 +84,7 @@ static string subtract(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -105,6 +105,11 @@ static string subtract(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+											// This operation cannot be performed on strings
+			return nullptr;
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -130,7 +135,7 @@ static string multiply(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -151,6 +156,11 @@ static string multiply(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+											// This operation cannot be performed on strings
+			return nullptr;
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -176,7 +186,7 @@ static string divide(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -197,6 +207,11 @@ static string divide(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+											// This operation cannot be performed on strings
+			return nullptr;
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -222,7 +237,7 @@ static string equality(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -243,6 +258,10 @@ static string equality(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) == (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -268,7 +287,7 @@ static string inequality(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -289,6 +308,10 @@ static string inequality(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) < (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -314,7 +337,7 @@ static string lt(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -335,6 +358,10 @@ static string lt(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+		
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) < (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -360,7 +387,7 @@ static string gt(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -381,6 +408,10 @@ static string gt(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+		
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) > (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -406,7 +437,7 @@ static string lte(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -427,6 +458,10 @@ static string lte(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+		
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) <= (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {
@@ -452,7 +487,7 @@ static string gte(Expr* leftSide, Expr* rightSide, Expr* parent) {
 	parent->setType("NUMBER");
 	leftSide->evaluate();
 	rightSide->evaluate();
-	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str()) && !strcmp(leftSide->getType().c_str(), "NUMBER")) {
+	if (!strcmp(leftSide->getType().c_str(), rightSide->getType().c_str())) {
 		void* resLeft;
 		void* resRight;
 		char typeL = strToNum(leftSide->value.c_str(), &resLeft);
@@ -473,6 +508,10 @@ static string gte(Expr* leftSide, Expr* rightSide, Expr* parent) {
 		}
 		else if (typeR == 'i') {
 			rightInt = (int*)resRight;
+		}
+		
+		if (typeR == 's' && typeL == 's') { // we are dealing with strings so treat the values as strings
+			return to_string((*(string*)resLeft) >= (*(string*)resRight));
 		}
 
 		if (rightFloat == nullptr && leftFloat == nullptr) {

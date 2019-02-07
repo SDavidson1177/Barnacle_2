@@ -331,8 +331,9 @@ char strToNum(const char* str, void** s) {
 	float numf = 0.0;
 	int decimalMag = 1;
 	int size = strlen(str);
+	int i = 0;
 
-	for (int i = 0; i < size; i++) {
+	for (; i < size; i++) {
 		if (str[i] == '.' && res != 'f') {
 			res = 'f';
 			numf = (float)num;
@@ -356,12 +357,16 @@ char strToNum(const char* str, void** s) {
 		}
 	}
 
+	if (!i) { // we treat any non-number as a string
+		res = 's';
+		std::string* temp = new std::string(str);
+		*s = temp;
+	}
 
 	if (res == 'i') {
 		int* temp = (int*)malloc(sizeof(int));
 		temp[0] = num;
 		*s = temp;
-		//cout << ((int*)(*s))[0] << endl;
 	}
 	else if (res == 'f') {
 		float* temp = (float*)malloc(sizeof(int));
