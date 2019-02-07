@@ -192,7 +192,7 @@ static void getSpecialSymbols(FILE** f, vector <Token*>* a, char** token, int* l
 }
 
 void readTokens(const char* file, vector <Token*>* a, int &index, string text) {
-	FILE* f;
+	FILE* f = nullptr;
 	istringstream scanned_string{text};
 	if (file) { // if we are reading from a file
 		f = fopen(file, "r");
@@ -214,7 +214,7 @@ void readTokens(const char* file, vector <Token*>* a, int &index, string text) {
 		token[0] = 0;
 	}
 
-	if (file == nullptr ? true : f) {
+	if (file == nullptr ? true : f != nullptr) {
 		do {
 			char val[] = { c , '\0' };
 			bool is_stop_char = (stopSymbols.lookup(val) != nullptr);
