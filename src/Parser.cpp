@@ -720,8 +720,9 @@ static Expr* equation(vector <Token*>* tokens, vector <map<string, pair<Variable
 			if (*index == end) {
 				return multsAndDivs;
 			}
+			int prev_index = *index;
 			return new Binary(equation(tokens, scope, index, end, get_comp),
-				tokens->at(*index + 1), multsAndDivs, getType(&(tokens->at(*index + 2)), scope));
+				tokens->at(prev_index + 1), multsAndDivs, getType(&(tokens->at(prev_index + 2)), scope));
 		}
 		else if (!strcmp(getValue(&tokens->at(*index - 1), scope).c_str(), "-") ||
 			!strcmp(getValue(&tokens->at(*index - 1), scope).c_str(), "+")) {
